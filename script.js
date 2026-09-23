@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const yearEl = document.getElementById("year");
     if (yearEl) yearEl.textContent = new Date().getFullYear();
 
+
     /* ---------- Video popup ---------- */
     const modal = document.getElementById("videoModal");
     const popupVideo = document.getElementById("popupVideo");
@@ -13,30 +14,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeBtn = document.getElementById("closeVideo");
     const showreelVideo = document.querySelector(".showreel video");
 
+    if (showreelVideo) showreelVideo.preload = "metadata";
+    popupVideo.preload = "auto";
+
+    // Small message box inside the popup, shown only when a video fails to load
+    const errorBox = document.createElement("div");
+    errorBox.className = "video-error";
+    popupVideo.insertAdjacentElement("afterend", errorBox);
+
+    popupVideo.addEventListener("error", () => {
+        if (!popupVideo.getAttribute("src")) return; // ignore the reset on close
+        errorBox.textContent =
+            "This video could not be loaded (" + popupVideo.getAttribute("src") + "). " +
+            "Check that the file exists in the assets folder, the name matches exactly " +
+            "(lowercase) and the file is a normal MP4 (H.264).";
+        errorBox.classList.add("show");
+    });
+
     function openModal(thumb) {
         const src = thumb.dataset.video;
         if (!src) return;
 
-        // pause the hero showreel so two videos don't play together
         if (showreelVideo) showreelVideo.pause();
 
         popupTitle.textContent = thumb.dataset.title || "";
         popupCategory.textContent = thumb.dataset.category || "";
         popupDescription.textContent = thumb.dataset.description || "";
 
+        errorBox.classList.remove("show");
         popupVideo.src = src;
         popupVideo.load();
 
-        modal.classList.add("active", "open", "show");
-        modal.style.display = "flex";
+        modal.classList.add("active");
         document.body.style.overflow = "hidden";
 
-        // Click counts as a user gesture, so play() is allowed
         const playPromise = popupVideo.play();
         if (playPromise !== undefined) {
-            playPromise.catch(err => {
-                console.warn("Autoplay blocked or video failed:", err);
-            });
+            playPromise.catch(err => console.warn("Video play problem:", err));
         }
     }
 
@@ -45,8 +59,8 @@ document.addEventListener("DOMContentLoaded", () => {
         popupVideo.removeAttribute("src");
         popupVideo.load();
 
-        modal.classList.remove("active", "open", "show");
-        modal.style.display = "none";
+        errorBox.classList.remove("show");
+        modal.classList.remove("active");
         document.body.style.overflow = "";
     }
 
@@ -54,17 +68,16 @@ document.addEventListener("DOMContentLoaded", () => {
         thumb.addEventListener("click", () => openModal(thumb));
     });
 
-    if (closeBtn) closeBtn.addEventListener("click", closeModal);
+    closeBtn.addEventListener("click", closeModal);
 
-    // click on dark backdrop closes
     modal.addEventListener("click", e => {
         if (e.target === modal) closeModal();
     });
 
-    // Esc key closes
     document.addEventListener("keydown", e => {
-        if (e.key === "Escape" && modal.style.display === "flex") closeModal();
+        if (e.key === "Escape" && modal.classList.contains("active")) closeModal();
     });
+
 
     /* ---------- Portfolio filters ---------- */
     const filters = document.querySelectorAll(".filter");
@@ -77,9 +90,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const value = btn.dataset.filter;
             projects.forEach(p => {
-                const show = value === "all" || p.dataset.category === value;
-                p.style.display = show ? "" : "none";
+                const match = value === "all" || p.dataset.category === value;
+                p.classList.toggle("hidden", !match);
             });
         });
     });
+
+
+    /* ---------- Scroll reveal ---------- */
+    const revealTargets = document.querySelectorAll(
+        ".section, .hero-content, .showreel, .moving-text, footer"
+    );
+
+    if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add("show");
+                    obs.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.05 });
+
+        revealTargets.forEach(el => {
+            el.classList.add("reveal");
+            observer.observe(el);
+        });
+    }
 });
